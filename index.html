@@ -141,7 +141,7 @@ function add(text,who="bot"){
  document.getElementById("chat").scrollTop=999999;
 }
 async function send(){const i=document.getElementById("msg");const q=i.value.trim();if(!q)return;i.value="";ask(q)}
-function toggleCARVIS(){document.getElementById("carvisChat").classList.toggle("closed")}
+async function ask(q){ add(q,"user"); carvisHistory.push({ role:"user", content:q }); try{ const response = await fetch("/api/carvis",{ method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ messages:carvisHistory }) }); const data = await response.json(); if(!response.ok){ throw new Error(data.error || "CARVIS API hatası"); } const answer = data.choices?.[0]?.message?.content || data.output_text || data.response || "CARVIS şu anda cevap veremedi."; add(answer,"bot"); carvisHistory.push({ role:"assistant", content:answer }); }catch(error){ console.error("CARVIS:",error); add("Üzgünüm, şu anda CARVIS sunucusuna bağlanamıyorum. Lütfen biraz sonra tekrar deneyin.","bot"); } } function toggleCARVIS(){document.getElementById("carvisChat").classList.toggle("closed")}
 function openCARVIS(){document.getElementById("carvisChat").style.display="block";document.getElementById("carvisChat").scrollIntoView({behavior:"smooth"})}
 function navigate(){
  const p=document.getElementById("purpose").value,o=document.getElementById("offer").value,e=document.getElementById("edu").value;
