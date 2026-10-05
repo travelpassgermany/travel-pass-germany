@@ -2,12 +2,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Ana site ve statik dosyalar
     if (url.pathname !== "/api/carvis") {
       return env.ASSETS.fetch(request);
     }
 
-    // Sadece POST kabul et
     if (request.method !== "POST") {
       return new Response(
         JSON.stringify({ error: "Method Not Allowed" }),
@@ -21,7 +19,6 @@ export default {
     }
 
     try {
-      // Frontend'den gelen mesajları al
       const body = await request.json();
 
       const messages = Array.isArray(body.messages)
@@ -33,7 +30,20 @@ export default {
             }
           ];
 
-      // OpenAI'ye gönder
+      if (!env.OPENAI_API_KEY) {
+        return new Response(
+          JSON.stringify({
+            error: "OPENAI_API_KEY Cloudflare Worker'a ulaşmıyor."
+          }),
+          {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }
+        );
+      }
+
       const response = await fetch(
         "https://api.openai.com/v1/chat/completions",
         {
@@ -44,24 +54,23 @@ export default {
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
-            messages: messages
+            messages
           })
         }
       );
 
       const data = await response.json();
 
-      // OpenAI hata döndürdüyse aynısını frontend'e bildir
       if (!response.ok) {
         return new Response(
           JSON.stringify({
-            error: data?.error?.message || "OpenAI API hatası"
+            error: data?.error?.message || "OpenAI API hatası",
+            status: response.status
           }),
           {
             status: response.status,
             headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*"
+              "Content-Type": "application/json"
             }
           }
         );
@@ -72,27 +81,24 @@ export default {
         "CARVIS şu anda cevap oluşturamadı.";
 
       return new Response(
-        JSON.stringify({
-          reply: reply
-        }),
+        JSON.stringify({ reply }),
         {
           status: 200,
           headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"
+            "Content-Type": "application/json"
           }
         }
       );
+
     } catch (error) {
       return new Response(
         JSON.stringify({
-          error: "CARVIS sunucusunda bir hata oluştu."
+          error: error?.message || "CARVIS sunucusunda bilinmeyen bir hata oluştu."
         }),
         {
           status: 500,
           headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"
+            "Content-Type": "application/json"
           }
         }
       );
