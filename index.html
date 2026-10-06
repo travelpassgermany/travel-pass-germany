@@ -1424,13 +1424,11 @@ h1{
    CARVIS
    ========================================================= */
 
-let carvisHistory = [
-  {
-    role: "assistant",
-    content:
-      "Hey, merhaba! Ben CARVIS, Travel Pass Germany vize destek asistanıyım. Sana bu süreçte ilgili vize uzmanımızla görüşene kadar eşlik edeceğim. Aklına ne takılıyorsa bana sorabilirsin. Almanya için doğru vize yolunu birlikte keşfedebilir, gerekli belgeleri ve başvuru sürecini adım adım inceleyebiliriz."
-  }
-];
+/* =========================================================
+   CARVIS
+   ========================================================= */
+
+let carvisHistory = [];
 
 
 /* Mesajı ekrana güvenli şekilde ekler */
@@ -1454,7 +1452,7 @@ function add(text, who = "bot") {
 }
 
 
-/* Kullanıcı mesajını CARVIS API'ye gönder */
+/* Kullanıcı mesajını gönder */
 async function send() {
 
   const input = document.getElementById("msg");
@@ -1484,10 +1482,10 @@ async function ask(q) {
 
   const message = String(q).trim();
 
-  /* Kullanıcı mesajını hemen ekrana göster */
+  /* Kullanıcı mesajını ekrana göster */
   add(message, "user");
 
-  /* Konuşma geçmişine ekle */
+  /* Geçmişe kullanıcı mesajını ekle */
   carvisHistory.push({
     role: "user",
     content: message
@@ -1497,9 +1495,11 @@ async function ask(q) {
 
     const response = await fetch("/api/carvis", {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json"
       },
+
       body: JSON.stringify({
         messages: carvisHistory
       })
@@ -1510,43 +1510,44 @@ async function ask(q) {
     try {
       data = await response.json();
     } catch (jsonError) {
-      throw new Error("Sunucudan geçerli bir cevap alınamadı.");
-    }
-
-    if (!response.ok) {
 
       throw new Error(
-        data.error ||
-        "CARVIS API hatası (" + response.status + ")"
+        "Sunucudan geçerli JSON cevap alınamadı."
       );
 
     }
 
-    /*
-      Yeni Worker formatı:
-      { "reply": "..." }
+    console.log("CARVIS HTTP:", response.status);
+    console.log("CARVIS DATA:", data);
 
-      Eski OpenAI formatı:
-      { choices: [{ message: { content: "..." } }] }
+    if (!response.ok) {
 
-      Her ikisini de destekliyoruz.
-    */
+      throw new Error(
+        data?.error ||
+        "CARVIS API hatası: HTTP " + response.status
+      );
+
+    }
 
     const answer =
-      data.reply ||
-      data.choices?.[0]?.message?.content ||
-      data.output_text ||
-      data.response ||
+      data?.reply ||
+      data?.choices?.[0]?.message?.content ||
+      data?.output_text ||
+      data?.response ||
       "";
 
     if (!answer) {
-      throw new Error("CARVIS boş cevap döndürdü.");
+
+      throw new Error(
+        "CARVIS boş cevap döndürdü."
+      );
+
     }
 
-    /* CARVIS cevabını göster */
+    /* Cevabı ekrana göster */
     add(answer, "bot");
 
-    /* Geçmişe ekle */
+    /* Cevabı konuşma geçmişine ekle */
     carvisHistory.push({
       role: "assistant",
       content: answer
@@ -1554,12 +1555,22 @@ async function ask(q) {
 
   } catch (error) {
 
-    console.error("CARVIS:", error);
+    console.error(
+      "CARVIS GERÇEK HATA:",
+      error
+    );
+
+    /*
+     * Artık gerçek hatayı ekranda da gösteriyoruz.
+     * Böylece sorunun ne olduğunu görebileceğiz.
+     */
 
     add(
-      "Üzgünüm, şu anda CARVIS sunucusuna bağlanamıyorum. Lütfen biraz sonra tekrar deneyin.",
+      "CARVIS bağlantı hatası: " +
+      (error?.message || "Bilinmeyen hata"),
       "bot"
     );
+
   }
 }
 
@@ -1591,19 +1602,14 @@ function openCARVIS() {
   box.style.display = "block";
 
   setTimeout(function() {
+
     box.scrollIntoView({
       behavior: "smooth",
       block: "center"
     });
+
   }, 50);
-}
-
-
-/* =========================================================
-   TRAVEL PASS NAVIGATOR
-   ========================================================= */
-
-function navigate() {
+}function navigate() {
 
   const purposeElement = document.getElementById("purpose");
   const offerElement = document.getElementById("offer");
