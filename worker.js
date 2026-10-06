@@ -6,133 +6,91 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
+    // TEST: Tarayıcıdan açıldığında Gemini'yi doğrudan test et
     if (request.method === "GET") {
-      return new Response(
-        JSON.stringify({
-          carvis: "ok",
-          geminiKey: Boolean(env.GEMINI_API_KEY)
-        }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
-    if (request.method !== "POST") {
-      return new Response(
-        JSON.stringify({
-          error: "Method Not Allowed"
-        }),
-        {
-          status: 405,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-    }
-
-    try {
-      const body = await request.json();
-
-      const messages = Array.isArray(body.messages)
-        ? body.messages
-        : [
+      try {
+        if (!env.GEMINI_API_KEY) {
+          return new Response(
+            JSON.stringify({ error: "GEMINI_API_KEY bulunamadı." }),
             {
-              role: "user",
-              content: body.message || ""
+              status: 200,
+              headers: { "Content-Type": "application/json" }
             }
-          ];
+          );
+        }
 
-      if (!env.GEMINI_API_KEY) {
-        return new Response(
-          JSON.stringify({
-            error: "GEMINI_API_KEY bulunamadı."
-          }),
+        const response = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+            encodeURIComponent(env.GEMINI_API_KEY),
           {
-            status: 500,
+            method: "POST",
             headers: {
               "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    {
+                      text: "Merhaba"
+                    }
+                  ]
+                }
+              ]
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          return new Response(
+            JSON.stringify({
+              gemini_status: response.status,
+              gemini_error: data?.error?.message || "Bilinmeyen Gemini hatası"
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
             }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            gemini_status: 200,
+            reply:
+              data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+              "Gemini cevap verdi ama metin bulunamadı."
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        );
+
+      } catch (error) {
+        return new Response(
+          JSON.stringify({
+            error: error?.message || "Worker hatası"
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
           }
         );
       }
-
-      const contents = messages.map((message) => ({
-        role: message.role === "assistant" ? "model" : "user",
-        parts: [
-          {
-            text: String(message.content || "")
-          }
-        ]
-      }));
-
-      const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-          encodeURIComponent(env.GEMINI_API_KEY),
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            contents
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return new Response(
-          JSON.stringify({
-            error:
-              data?.error?.message ||
-              "Gemini API hatası",
-            status: response.status
-          }),
-          {
-            status: 500,
-            headers: {
-              "Content-Type": "application/json"
-            }
-          }
-        );
-      }
-
-      const reply =
-        data?.candidates?.[0]?.content?.parts
-          ?.map((part) => part.text || "")
-          .join("") ||
-        "CARVIS cevap oluşturamadı.";
-
-      return new Response(
-        JSON.stringify({
-          reply
-        }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
-
-    } catch (error) {
-      return new Response(
-        JSON.stringify({
-          error: error?.message || "Worker hatası"
-        }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      );
     }
+
+    return new Response(
+      JSON.stringify({
+        error: "Test tamamlandı."
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
   }
 };
