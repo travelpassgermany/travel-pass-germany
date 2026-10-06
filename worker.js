@@ -2,15 +2,30 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Site ve statik dosyalar
     if (url.pathname !== "/api/carvis") {
       return env.ASSETS.fetch(request);
     }
 
-    // Sadece POST
+    if (request.method === "GET") {
+      return new Response(
+        JSON.stringify({
+          carvis: "ok",
+          geminiKey: Boolean(env.GEMINI_API_KEY)
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
+
     if (request.method !== "POST") {
       return new Response(
-        JSON.stringify({ error: "Method Not Allowed" }),
+        JSON.stringify({
+          error: "Method Not Allowed"
+        }),
         {
           status: 405,
           headers: {
@@ -35,7 +50,7 @@ export default {
       if (!env.GEMINI_API_KEY) {
         return new Response(
           JSON.stringify({
-            error: "GEMINI_API_KEY Cloudflare Worker'a ulaşmıyor."
+            error: "GEMINI_API_KEY bulunamadı."
           }),
           {
             status: 500,
@@ -46,7 +61,6 @@ export default {
         );
       }
 
-      // Gemini formatına çevir
       const contents = messages.map((message) => ({
         role: message.role === "assistant" ? "model" : "user",
         parts: [
@@ -77,10 +91,11 @@ export default {
           JSON.stringify({
             error:
               data?.error?.message ||
-              "Gemini API hatası"
+              "Gemini API hatası",
+            status: response.status
           }),
           {
-            status: response.status,
+            status: 500,
             headers: {
               "Content-Type": "application/json"
             }
@@ -92,10 +107,12 @@ export default {
         data?.candidates?.[0]?.content?.parts
           ?.map((part) => part.text || "")
           .join("") ||
-        "CARVIS şu anda cevap oluşturamadı.";
+        "CARVIS cevap oluşturamadı.";
 
       return new Response(
-        JSON.stringify({ reply }),
+        JSON.stringify({
+          reply
+        }),
         {
           status: 200,
           headers: {
@@ -107,9 +124,7 @@ export default {
     } catch (error) {
       return new Response(
         JSON.stringify({
-          error:
-            error?.message ||
-            "CARVIS sunucusunda bir hata oluştu."
+          error: error?.message || "Worker hatası"
         }),
         {
           status: 500,
