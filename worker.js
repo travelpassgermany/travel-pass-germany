@@ -89,6 +89,7 @@ systemInstruction: {
       );
 
       const data = await response.json();
+      console.log("GEMINI RESPONSE:", JSON.stringify(data));
 
       if (!response.ok) {
         return new Response(
